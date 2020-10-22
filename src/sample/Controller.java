@@ -300,7 +300,7 @@ class TextEditor implements FileHandling
 
 public class Controller extends TextEditor implements Initializable{
 
-    private Stage primaryStage;
+    Runtime run = Runtime.getRuntime();//runtime to compile and run commands
 
 
     public void initialize(URL url, ResourceBundle resourceBundle) //initialise the directory and Arraylists
@@ -330,5 +330,81 @@ public class Controller extends TextEditor implements Initializable{
         Platform.exit();
         return true;
     }
+
+    @FXML
+    public Boolean compile() throws InterruptedException, IOException
+    {
+        if(save()==false)return false;//save file before compiling
+        String command="";
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        taLogs.appendText("\nCompiling "+currFile.getFilePath());
+        if(currFile.getFileType().equals("cpp"))//if c++ file
+        {
+            command="g++ "+currFile.getFilePath()+" -o"+currFile.getFileName();
+        }
+
+        Process prc = run.exec(command);
+        prc.waitFor();//wait for process to execute
+
+        InputStream error = prc.getErrorStream();
+
+        if(error.available()==0) {
+            taLogs.appendText("\nCompiled Without Errors");
+            return true;
+        }
+        else
+        {
+            BufferedReader br = new BufferedReader(new InputStreamReader(error));
+            String readline;
+            while((readline = br.readLine())!=null) taLogs.appendText("\n"+readline);
+        }
+
+        return false;
+    }
+    @FXML TextArea taInput, taOutput;
+    @FXML
+    public Boolean run()throws IOException, InterruptedException
+    {
+        if(compile()==false)return false;//compile before running
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        String command="";
+
+        if(currFile.getFileType().equals("cpp"))
+        {
+            command = "./"+currFile.getFileName();
+        }
+
+        Process prc = run.exec(command);
+        InputStream error = prc.getErrorStream();
+        InputStream output = prc.getInputStream();
+
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(prc.getOutputStream()));
+        writer.write(taInput.getText()+"\n\n\n\n\n");
+        writer.flush();
+
+        prc.waitFor();
+
+        if(error.available()==0)
+        {
+            taLogs.appendText("\nRunned Sucessfully, Open OUTPUT Tab to check output");
+            BufferedReader br = new BufferedReader(new InputStreamReader(output));
+            String readline;taOutput.setText("");
+            while((readline = br.readLine())!=null) taOutput.appendText(readline+"\n");
+            taOutput.appendText("Program exited with exit code : "+prc.exitValue());
+        }
+        else
+        {
+            BufferedReader br = new BufferedReader(new InputStreamReader(error));
+            String readline;
+            while((readline = br.readLine())!=null) taLogs.appendText("\n"+readline);
+        }
+
+
+        return true;
+    }
+
+
 
 }
