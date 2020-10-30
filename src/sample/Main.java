@@ -25,12 +25,9 @@ public class Main extends Application {
 
         Controller controller = fxmlLoader.getController();
 
-        primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
-            @Override
-            public void handle(WindowEvent windowEvent) {
-                if(controller.exit()){}
-                else windowEvent.consume();//cancel event
-            }
+        primaryStage.setOnCloseRequest(windowEvent -> {
+            if(controller.exit()){}
+            else windowEvent.consume();//cancel event
         });
     }
 

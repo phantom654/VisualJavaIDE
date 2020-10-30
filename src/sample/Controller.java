@@ -1,19 +1,29 @@
 package sample;
 
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
+import org.w3c.dom.Text;
 
+import javax.swing.*;
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
+import java.util.Scanner;
 
 interface FileHandling
 {
@@ -26,7 +36,7 @@ interface FileHandling
     public Boolean closeFile();
 }
 
-class CodeFile
+class CodeFile implements Cloneable
 {
     private String text;//last saved text
     private String fileType;//type of code file
@@ -35,6 +45,10 @@ class CodeFile
     private Tab tab;
     private AnchorPane anchorPane;
     private TextArea taEditor;
+
+    public Object clone()throws CloneNotSupportedException{
+        return super.clone();
+    }
 
     public String getText() {
         return text;
@@ -341,7 +355,7 @@ public class Controller extends TextEditor implements Initializable{
         taLogs.appendText("\nCompiling "+currFile.getFilePath());
         if(currFile.getFileType().equals("cpp"))//if c++ file
         {
-            command="g++ "+currFile.getFilePath()+" -o"+currFile.getFileName();
+            command="g++ -g "+currFile.getFilePath()+" -o"+currFile.getFileName();
         }
 
         Process prc = run.exec(command);
@@ -405,6 +419,313 @@ public class Controller extends TextEditor implements Initializable{
         return true;
     }
 
+
+    DebuggerController debuggerController;
+    @FXML
+    public Boolean debug()throws IOException,InterruptedException
+    {
+        if(compile()==false)return false;//compile before running
+
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+
+
+            //Create a new window for Debugger
+            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("debugger.fxml"));
+            Parent root = (Parent) fxmlLoader.load();
+            Stage stage = new Stage();
+
+            stage.setTitle("Debugger");
+            stage.setScene(new Scene(root));
+            stage.show();
+
+            debuggerController = fxmlLoader.getController();
+            new Debugger(currFile,debuggerController,stage);//start a new debugger session
+
+        return true;
+    }
+
+    class Debugger implements Runnable
+    {
+        CodeFile currFile;
+        DebuggerController debuggerController;
+        Stage stage;
+        Thread thread;
+
+        public Debugger(CodeFile currFile,DebuggerController debuggerController,Stage stage)
+        {
+            //clone as multiple instances of debug can be called
+            try
+            {
+                this.currFile = (CodeFile) currFile.clone();
+            }
+            catch (CloneNotSupportedException e){
+                e.printStackTrace();
+            }
+            this.debuggerController = debuggerController;
+            this.stage=stage;
+            thread=new Thread(this,currFile.getFilePath());
+            thread.start();
+
+        }
+        @Override
+        public void run() {
+
+            //fill the command
+            String command="gdb ./"+currFile.getFileName();
+
+            ProcessBuilder processBuilder=new ProcessBuilder("bash","-c",command);
+            BufferedWriter out=null;//the output stream where we will give input to process
+            Process process = null;
+            try {
+                process=processBuilder.start();
+                InputStream inStream = process.getInputStream();
+                OutputStream outStream = process.getOutputStream();
+
+                out = new BufferedWriter(new OutputStreamWriter(outStream));
+
+                //set the events
+                BufferedWriter finalOut = out;
+
+                debuggerController.getBtnDBreak().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="break "+debuggerController.getTfDBreak().getText()+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDEnable().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="enable "+debuggerController.getTfDEnable().getText()+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDDisable().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="disable "+debuggerController.getTfDDisable().getText()+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDPrint().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="info "+debuggerController.getTfDPrint().getText()+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+                debuggerController.getBtnDRun().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="run"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDNext().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="next"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDStep().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="step"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDList().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="list"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                debuggerController.getBtnDContinue().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command="continue"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+                debuggerController.getBtnDCustomCommand().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+                        String command=debuggerController.getTfDCustomCommand().getText()+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+
+                    }
+                });
+               // processBuilder.redirectErrorStream(true);//merge the error and output stream of the process
+                InputStream errorStream = process.getErrorStream();
+
+                Thread errorThread = new Thread(){
+
+                    public void run() {
+                        try {
+                            while (true) {
+
+                                Thread.sleep(10);//for the interrupts
+                                BufferedReader br = new BufferedReader(new InputStreamReader(errorStream));
+                                String readline;
+                                while ((readline = br.readLine()) != null)
+                                    debuggerController.getTaDError().appendText("\n" + readline);
+                            }
+
+                        }
+                        catch (IOException e) {
+                        }
+                    catch(InterruptedException e)
+                    {
+
+                    }
+                    }};
+                errorThread.start();
+
+                Thread finalErrorThread = errorThread;
+                stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+                    @Override
+                    public void handle(WindowEvent windowEvent) {
+                        String command="quit"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                        thread.interrupt();//interrupt to stop them
+                        finalErrorThread.interrupt();
+                    }
+                });
+
+                debuggerController.getBtnDQuit().setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent actionEvent) {
+
+                        String command="quit"+"\n";
+                        try {
+                            finalOut.write(command, 0, command.length());
+                            finalOut.flush();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                        }
+                        thread.interrupt();
+                        finalErrorThread.interrupt();
+                        stage.close();
+
+                    }
+                });
+
+                while (true) {
+
+                    Thread.sleep(10);
+                    BufferedReader br = new BufferedReader(new InputStreamReader(inStream));
+                    String readline;
+                    while((readline = br.readLine())!=null) debuggerController.getTaDOutput().appendText("\n"+readline);
+
+                }
+
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }catch (InterruptedException e) {
+                //e.printStackTrace();
+                taLogs.appendText("\nFinished debugging : "+currFile.getFilePath());
+            }
+            finally {
+                if (out != null) {
+                    try {
+                        out.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+
+
+        }
+
+    }
 
 
 }

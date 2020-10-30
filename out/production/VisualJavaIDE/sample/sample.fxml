@@ -72,7 +72,7 @@
                     <items>
                       <Button mnemonicParsing="false" onAction="#compile" text="Compile" />
                         <Button mnemonicParsing="false" onAction="#run" text="Run" />
-                        <Button mnemonicParsing="false" text="Debug" />
+                        <Button mnemonicParsing="false" onAction="#debug" text="Debug" />
                     </items>
                   </ToolBar>
                </children>
