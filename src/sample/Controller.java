@@ -36,6 +36,17 @@ interface FileHandling
     public Boolean closeFile();
 }
 
+interface Edit
+{
+    public Boolean undo();
+    public Boolean redo();
+    public Boolean cut();
+    public Boolean copy();
+    public Boolean paste();
+}
+
+
+
 class CodeFile implements Cloneable
 {
     private String text;//last saved text
@@ -107,7 +118,7 @@ class CodeFile implements Cloneable
     }
 }
 
-class TextEditor implements FileHandling
+class TextEditor implements FileHandling,Edit
 {
     @FXML
     TabPane tabPane;//tab pane that stores multiple text windows
@@ -310,6 +321,52 @@ class TextEditor implements FileHandling
     }
 
 
+    @Override
+    @FXML
+    public Boolean undo() {
+
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        currFile.getTaEditor().undo();
+
+        return true;
+    }
+
+    @Override
+    @FXML
+    public Boolean redo() {
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        currFile.getTaEditor().redo();
+        return true;
+    }
+
+    @Override
+    @FXML
+    public Boolean cut() {
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        currFile.getTaEditor().cut();
+        return true;
+    }
+
+    @Override
+    @FXML
+    public Boolean copy() {
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        currFile.getTaEditor().copy();
+        return true;
+    }
+
+    @Override
+    @FXML
+    public Boolean paste() {
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+        currFile.getTaEditor().paste();
+        return true;
+    }
 }
 
 public class Controller extends TextEditor implements Initializable{
@@ -639,7 +696,7 @@ public class Controller extends TextEditor implements Initializable{
                         try {
                             while (true) {
 
-                                Thread.sleep(10);//for the interrupts
+                                Thread.sleep(1);//for the interrupts
                                 BufferedReader br = new BufferedReader(new InputStreamReader(errorStream));
                                 String readline;
                                 while ((readline = br.readLine()) != null)
@@ -696,7 +753,7 @@ public class Controller extends TextEditor implements Initializable{
 
                 while (true) {
 
-                    Thread.sleep(10);
+                    Thread.sleep(1);
                     BufferedReader br = new BufferedReader(new InputStreamReader(inStream));
                     String readline;
                     while((readline = br.readLine())!=null) debuggerController.getTaDOutput().appendText("\n"+readline);
