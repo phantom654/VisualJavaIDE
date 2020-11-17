@@ -4,8 +4,10 @@ import javafx.application.Application;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.WindowEvent;
@@ -17,9 +19,14 @@ public class Main extends Application {
 
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("sample.fxml"));
 
+        Rectangle2D screenBound = Screen.getPrimary().getVisualBounds();
+
         Parent root = fxmlLoader.load();
         primaryStage.setTitle("Visual IDE");
-        primaryStage.setScene(new Scene(root));
+        Scene scene = new Scene(root);
+        scene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
+
+        primaryStage.setScene(scene);
         primaryStage.initStyle(StageStyle.DECORATED);
         primaryStage.show();
 

@@ -13,6 +13,8 @@ import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -76,6 +78,7 @@ class CodeFile implements Cloneable
     private Tab tab;
     private AnchorPane anchorPane;
     private TextArea taEditor;
+    private Boolean isSaved;
 
     public Object clone()throws CloneNotSupportedException{
         return super.clone();
@@ -136,6 +139,14 @@ class CodeFile implements Cloneable
     public void setTaEditor(TextArea taEditor) {
         this.taEditor = taEditor;
     }
+
+    public Boolean getSaved() {
+        return isSaved;
+    }
+
+    public void setSaved(Boolean saved) {
+        isSaved = saved;
+    }
 }
 
 class TextEditor implements FileHandling,Edit,Appearence
@@ -152,7 +163,57 @@ class TextEditor implements FileHandling,Edit,Appearence
     int fontSize;
     String fontStyle;
 
+    String prevKey="";
 
+    @FXML
+    void identation(KeyEvent e) {
+        //check key event
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+
+        TextArea taEditor = currFile.getTaEditor();
+        int caretPosition = taEditor.getCaretPosition();
+        int temp = caretPosition - 1;
+        String text = taEditor.getText();
+        String s = "";
+        int num = 0;
+        //taLogs.appendText("\n"+e.getCode().toString());
+        if (e.getCode().equals(KeyCode.ENTER)) {
+
+            if (text.charAt(temp - 1) == '{') {
+                num += 8;
+                s += "\t";
+            }
+            while (temp >= 1 && text.charAt(temp - 1) != '\n') temp--;
+
+            while (text.charAt(temp) == ' ' || text.charAt(temp) == '\t') {
+                if (text.charAt(temp) == ' ') {
+                    s += " ";
+                    num++;
+                }
+                if (text.charAt(temp) == '\t') {
+                    s += "\t";
+                    num += 8;
+                }
+
+                temp++;
+            }
+
+            taEditor.insertText(caretPosition, s);
+            taLogs.appendText("\nIdentation done, " + num + " spaces inserted");
+
+        }
+        if(prevKey=="SHIFT" && e.getCode().toString().equals("CLOSE_BRACKET"))
+        {
+            if(text.charAt(temp)=='\t')
+            {
+                currFile.getTaEditor().deleteText(temp,temp+1);
+            }
+        }
+
+        prevKey=e.getCode().toString();
+
+    }
 
     @Override
     @FXML
@@ -167,12 +228,19 @@ class TextEditor implements FileHandling,Edit,Appearence
         codeFile.setFileName(newFile.getName().substring(0, newFile.getName().lastIndexOf('.')));
         codeFile.setFileType(newFile.getName().substring(newFile.getName().lastIndexOf('.') + 1));
         codeFile.setText("");
+        codeFile.setSaved(true);
 
 
 
         codeFile.setTab(new Tab(codeFile.getFileName()));
         codeFile.setTaEditor(new TextArea());
         codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+            @Override
+            public void handle(KeyEvent keyEvent) {
+                identation(keyEvent);
+            }
+        });
         codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
         codeFile.setAnchorPane(new AnchorPane());
 
@@ -214,6 +282,7 @@ class TextEditor implements FileHandling,Edit,Appearence
         codeFile.setFileName(newFile.getName().substring(0, newFile.getName().lastIndexOf('.')));
         codeFile.setFileType(newFile.getName().substring(newFile.getName().lastIndexOf('.') + 1));
 
+
         //Read the text from File
         String temp, text="";
         try (BufferedReader buffReader = new BufferedReader(new FileReader(newFile))) {
@@ -228,6 +297,12 @@ class TextEditor implements FileHandling,Edit,Appearence
         codeFile.setTab(new Tab(codeFile.getFileName()));
         codeFile.setTaEditor(new TextArea());
         codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+            @Override
+            public void handle(KeyEvent keyEvent) {
+                identation(keyEvent);
+            }
+        });
         codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
         codeFile.setAnchorPane(new AnchorPane());
 
@@ -240,6 +315,8 @@ class TextEditor implements FileHandling,Edit,Appearence
         });
 
         codeFile.setText(text);
+        codeFile.setSaved(true);
+
         codeFile.getTaEditor().setText(text);//set the text in current file window
 
         AnchorPane.setTopAnchor(codeFile.getTaEditor(),0.0);//set constraints
@@ -262,20 +339,37 @@ class TextEditor implements FileHandling,Edit,Appearence
     @Override
     @FXML
     public Boolean save() {
-
-        Alert alert = new Alert(
-                Alert.AlertType.CONFIRMATION,
-                "Save This File ?",
-                ButtonType.YES,
-                ButtonType.NO
-        );
-
-        alert.showAndWait();
-        if(alert.getResult()== ButtonType.NO)return false;
-
         int ind = tabPane.getSelectionModel().getSelectedIndex();//current open tab
-
         CodeFile currFile = filesArray.get(ind);
+
+        if(currFile.getSaved()==false)
+        {
+            fileChooser.setTitle("Create New File");
+            File newFile = fileChooser.showSaveDialog(null);//check window
+            if(newFile==null)return false;//error creating file
+
+            currFile.setFilePath(newFile.getPath());
+            currFile.setFileName(newFile.getName().substring(0, newFile.getName().lastIndexOf('.')));
+            currFile.setFileType(newFile.getName().substring(newFile.getName().lastIndexOf('.') + 1));
+            currFile.setSaved(true);
+            currFile.getTab().setText(currFile.getFileName());
+
+            taLogs.appendText("\nCreated New File : "+currFile.getFilePath());
+
+            return true;
+        }
+        else {
+            Alert alert = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    "Save This File ?",
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            alert.showAndWait();
+            if (alert.getResult() == ButtonType.NO) return false;
+        }
+
         currFile.setText(currFile.getTaEditor().getText());
 
         //Write file on disk
@@ -547,6 +641,18 @@ class TextEditor implements FileHandling,Edit,Appearence
         }
         return 0;
     }
+
+    @FXML
+    TabPane tabPaneLogs;
+
+    @FXML
+    void showHideLogs()
+    {
+        if(tabPaneLogs.getPrefHeight()!=0)tabPaneLogs.setPrefHeight(0);
+        else tabPaneLogs.setPrefHeight(250);
+    }
+
+
 }
 
 public class Controller extends TextEditor implements Initializable{
@@ -570,6 +676,52 @@ public class Controller extends TextEditor implements Initializable{
         fontColor = defaultFontColor;
         fontSize = defaultFontSize;
         fontStyle = defaultFontStyle;
+
+        //fileChooser.setTitle("Create New File");
+//        File newFile = fileChooser.showSaveDialog(null);//check window
+//        if(newFile==null)return false;//error creating file
+
+        CodeFile codeFile = new CodeFile();//Make a new File
+        codeFile.setFileName("UNSAVED");
+        codeFile.setText("");
+        codeFile.setSaved(false);
+
+
+        codeFile.setTab(new Tab(codeFile.getFileName()));
+        codeFile.setTaEditor(new TextArea());
+        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+            @Override
+            public void handle(KeyEvent keyEvent) {
+                identation(keyEvent);
+            }
+        });
+        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
+        codeFile.setAnchorPane(new AnchorPane());
+
+        codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
+            @Override
+            public void handle(Event event) {
+                if(closeFile()){}
+                else event.consume();//cancel the event
+            }
+        });
+
+        AnchorPane.setTopAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setLeftAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setRightAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setBottomAnchor(codeFile.getTaEditor(),0.0);
+
+        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor());
+        codeFile.getTab().setContent(codeFile.getAnchorPane());
+        tabPane.getTabs().add(codeFile.getTab());
+        filesArray.add(codeFile);//add newly created file to the filesArray
+
+        tabPane.getSelectionModel().select(codeFile.getTab());
+
+       // taLogs.appendText("\nCreated new File at : "+codeFile.getFilePath());
+
+
 
     }
     @FXML
@@ -676,7 +828,9 @@ public class Controller extends TextEditor implements Initializable{
             Stage stage = new Stage();
 
             stage.setTitle("Debugger");
-            stage.setScene(new Scene(root));
+            Scene scene = new Scene(root);
+            scene.getStylesheets().add(getClass().getResource("DebuggerStyles.css").toExternalForm());
+            stage.setScene(scene);
             stage.show();
 
             debuggerController = fxmlLoader.getController();
