@@ -81,6 +81,14 @@
                               </MenuItem>
                         </items>
                       </Menu>
+                        <Menu mnemonicParsing="false" text="Appearence">
+                          <items>
+                            <MenuItem mnemonicParsing="false" onAction="#changeFont" text="Font" />
+                              <SeparatorMenuItem mnemonicParsing="false" />
+                              <MenuItem mnemonicParsing="false" onAction="#changeBackgroundColor" text="Background Color" />
+                              <MenuItem mnemonicParsing="false" onAction="#changeFontColor" text="Font Color" />
+                          </items>
+                        </Menu>
                       <Menu mnemonicParsing="false" text="Help">
                         <items>
                           <MenuItem mnemonicParsing="false" text="About" />

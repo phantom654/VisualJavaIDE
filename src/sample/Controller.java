@@ -1,22 +1,29 @@
 package sample;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
-import org.w3c.dom.Text;
 
 import javax.swing.*;
 import java.io.*;
@@ -43,6 +50,19 @@ interface Edit
     public Boolean cut();
     public Boolean copy();
     public Boolean paste();
+}
+
+interface Appearence
+{
+    String defaultFontColor="#FFFFFF";
+    int defaultFontSize = 20;
+    String defaultFontStyle = "SansSerif";
+    String defaultBackgroundColor = "#343131";
+
+    public String changeFont();
+    public int changeFontColor();
+    public int changeBackgroundColor();
+
 }
 
 
@@ -118,7 +138,7 @@ class CodeFile implements Cloneable
     }
 }
 
-class TextEditor implements FileHandling,Edit
+class TextEditor implements FileHandling,Edit,Appearence
 {
     @FXML
     TabPane tabPane;//tab pane that stores multiple text windows
@@ -126,6 +146,12 @@ class TextEditor implements FileHandling,Edit
     TextArea taLogs;
 
     ArrayList <CodeFile> filesArray;
+
+    String backgroundColor;
+    String fontColor;
+    int fontSize;
+    String fontStyle;
+
 
 
     @Override
@@ -142,8 +168,12 @@ class TextEditor implements FileHandling,Edit
         codeFile.setFileType(newFile.getName().substring(newFile.getName().lastIndexOf('.') + 1));
         codeFile.setText("");
 
+
+
         codeFile.setTab(new Tab(codeFile.getFileName()));
         codeFile.setTaEditor(new TextArea());
+        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
         codeFile.setAnchorPane(new AnchorPane());
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
@@ -194,8 +224,11 @@ class TextEditor implements FileHandling,Edit
             e.printStackTrace();
         }
 
+
         codeFile.setTab(new Tab(codeFile.getFileName()));
         codeFile.setTaEditor(new TextArea());
+        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
         codeFile.setAnchorPane(new AnchorPane());
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
@@ -367,6 +400,153 @@ class TextEditor implements FileHandling,Edit
         currFile.getTaEditor().paste();
         return true;
     }
+
+    @Override
+    public String changeFont() {
+
+        Alert alert =new Alert(Alert.AlertType.CONFIRMATION);
+        //alert.s
+        alert.setTitle("Change Font");
+        alert.setHeaderText("Choose Font Family and Font size");
+        alert.setResizable(true);
+
+        GridPane grid=new GridPane();
+        Scene scene = new Scene(new HBox(80), 400, 300);
+        HBox box = (HBox) scene.getRoot();
+        box.setPadding(new Insets(5, 5, 5, 5));
+        ObservableList<String> fonts = FXCollections.observableArrayList(javafx.scene.text.Font.getFamilies());
+        ArrayList<Integer> m =new ArrayList<Integer>();
+        for(int i=1;i<=30;i+=2){
+            m.add(i);
+        }
+        ObservableList<Integer> sizes = FXCollections.observableArrayList(m);
+        // Select font
+        ChoiceBox<String> selectFont;
+        selectFont = new ChoiceBox<>();
+        selectFont.setValue("SansSerif");
+        selectFont.setLayoutX(600);
+        selectFont.setLayoutY(200);
+        selectFont.setItems(fonts);
+        ChoiceBox<Integer> selectFontsize;
+        selectFontsize = new ChoiceBox<Integer>();
+        selectFontsize.setValue(9);
+        selectFontsize.setLayoutX(600);
+        selectFontsize.setLayoutY(400);
+        selectFontsize.setItems(sizes);
+        Text text = new Text("New Font");
+
+        selectFont.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> text.setFont(javafx.scene.text.Font.font(newValue, FontWeight.MEDIUM,24)));
+        selectFontsize.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> text.setFont(javafx.scene.text.Font.font(selectFont.getValue(),FontWeight.MEDIUM,newValue)));
+
+        text.setFont(Font.font(fontStyle,fontSize));
+        box.getChildren().addAll(selectFont,selectFontsize, text);
+        grid.getChildren().add(box);
+        alert.getDialogPane().setContent(box);
+        if(alert.showAndWait().get().getText().equals("OK")){
+            fontSize = selectFontsize.getValue();
+            fontStyle = selectFont.getValue();
+
+            for(int i=0;i<filesArray.size();i++)
+            {
+                filesArray.get(i).getTaEditor().setFont(Font.font(fontStyle,fontSize));
+            }
+
+            taLogs.appendText("\nChanged Font to : "+fontStyle+" : "+fontSize);
+
+        }
+
+
+        return null;
+    }
+
+    @Override
+    public int changeFontColor() {
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Change Font Color");
+        alert.setHeaderText("Select Color From Color Picker");
+        GridPane grid = new GridPane();
+        Scene scene = new Scene(new HBox(20), 400, 100);
+        HBox box = (HBox) scene.getRoot();
+        box.setPadding(new Insets(5, 5, 5, 5));
+
+        final ColorPicker colorPicker = new ColorPicker();
+
+        colorPicker.setValue(Color.valueOf(fontColor));
+
+        final Text text = new Text("This is your new color!!");
+        text.setFont(Font.font(fontStyle, fontSize));
+        text.setFill(colorPicker.getValue());
+
+        colorPicker.setOnAction(new EventHandler() {
+            public void handle(Event t) {
+                text.setFill(colorPicker.getValue());
+            }
+        });
+
+        box.getChildren().addAll(colorPicker, text);
+        grid.getChildren().add(box);
+        alert.getDialogPane().setContent(box);
+        if (alert.showAndWait().get().getText().equals("OK")) {
+            fontColor = colorPicker.getValue().toString();
+            fontColor = "#" + fontColor.substring(2, fontColor.length() - 2);
+            //taLogs.setText(colorPicker.getValue());
+
+            for(int i=0;i<filesArray.size();i++) {
+
+                filesArray.get(i).getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+            }
+            taLogs.appendText("\nChanged Font Color : "+fontColor);
+
+        }
+        return 0;
+    }
+
+    @Override
+    @FXML
+    public int changeBackgroundColor() {
+        Alert alert =new Alert(Alert.AlertType.CONFIRMATION);
+        //alert.s
+        alert.setTitle("Change Background Color");
+        alert.setHeaderText("Select Color From Color Picker");
+        GridPane grid=new GridPane();
+        Scene scene = new Scene(new HBox(20), 400, 100);
+        HBox box = (HBox) scene.getRoot();
+        box.setPadding(new Insets(5, 5, 5, 5));
+
+        final ColorPicker colorPicker = new ColorPicker();
+
+        colorPicker.setValue(Color.valueOf(backgroundColor));
+
+        final javafx.scene.text.Text text = new Text("This is your new color!!");
+        text.setFont(Font.font (fontStyle, fontSize));
+        text.setFill(colorPicker.getValue());
+
+        colorPicker.setOnAction(new EventHandler() {
+            public void handle(Event t) {
+
+                text.setFill(colorPicker.getValue());
+
+            }
+        });
+
+        box.getChildren().addAll(colorPicker,text);
+        grid.getChildren().add(box);
+        alert.getDialogPane().setContent(box);
+        if(alert.showAndWait().get().getText().equals("OK")){
+            backgroundColor = colorPicker.getValue().toString();
+            backgroundColor = "#"+backgroundColor.substring(2,backgroundColor.length()-2);
+            // taEditor.setStyle("-fx-text-fill:"+taEditor+"; " +"-fx-control-inner-background:"+bgColor+";"); ;
+
+            for(int i=0;i<filesArray.size();i++)
+            {
+                filesArray.get(i).getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+            }
+        taLogs.appendText("\n"+"Changed Background Color to : "+backgroundColor);
+
+        }
+        return 0;
+    }
 }
 
 public class Controller extends TextEditor implements Initializable{
@@ -386,7 +566,10 @@ public class Controller extends TextEditor implements Initializable{
                         new FileChooser.ExtensionFilter("C++", "*.cpp"),
                         new FileChooser.ExtensionFilter("All Files", "*.*"));
 
-
+        backgroundColor = defaultBackgroundColor;
+        fontColor = defaultFontColor;
+        fontSize = defaultFontSize;
+        fontStyle = defaultFontStyle;
 
     }
     @FXML
