@@ -67,6 +67,13 @@ interface Appearence
 
 }
 
+interface Search
+{
+    boolean find();
+    boolean findNext();
+    boolean replaceAll();
+}
+
 
 
 class CodeFile implements Cloneable
@@ -149,7 +156,7 @@ class CodeFile implements Cloneable
     }
 }
 
-class TextEditor implements FileHandling,Edit,Appearence
+class TextEditor implements FileHandling,Edit,Appearence,Search
 {
     @FXML
     TabPane tabPane;//tab pane that stores multiple text windows
@@ -164,6 +171,8 @@ class TextEditor implements FileHandling,Edit,Appearence
     String fontStyle;
 
     String prevKey="";
+
+    
 
     @FXML
     void identation(KeyEvent e) {
@@ -356,7 +365,6 @@ class TextEditor implements FileHandling,Edit,Appearence
 
             taLogs.appendText("\nCreated New File : "+currFile.getFilePath());
 
-            return true;
         }
         else {
             Alert alert = new Alert(
@@ -652,7 +660,168 @@ class TextEditor implements FileHandling,Edit,Appearence
         else tabPaneLogs.setPrefHeight(250);
     }
 
+    ArrayList <Integer> indices;int currInd;
+    @Override
+    public boolean find() {
 
+        indices = new ArrayList<>();
+
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+
+         String text = currFile.getTaEditor().getText();
+        ///////
+         String pattern=taFind.getText();
+
+                //Z-Funtion :
+                //` is used as the delimiter
+                String s=pattern+"`"+text;
+
+                int n=s.length();
+                int z[]= new int[n];
+
+                for(int i=1,l=0,r=0;i<n;i++)
+                {
+                    if (i <= r)
+                        z[i] = Math.min(r - i + 1, z[i - l]);
+                    while (i + z[i] < n && s.charAt(z[i]) == s.charAt(i + z[i]))
+                        ++z[i];
+                    if (i + z[i] - 1 > r)
+                        l = i; r = i + z[i] - 1;
+                }
+
+                for(int i=pattern.length();i<s.length();i++)
+                {
+                    if(z[i]==pattern.length())indices.add(i-pattern.length()-1);
+                }
+
+                currInd=0;
+
+        if(currInd>=indices.size())currInd=0;
+
+                if(indices.size() >currInd) {
+                    currFile.getTaEditor().selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
+
+                    currFile.getTaEditor().requestFocus();
+                }
+        return true;
+    }
+
+    @FXML
+    HBox hboxSearch;
+    @FXML
+    Button btnCloseSearch;
+    @FXML
+    TextArea taFind;
+    @FXML
+    TextArea taReplace;
+    @FXML
+    Button btnFind;
+    @FXML
+    Button btnFindNext;
+    @FXML
+    Button btnReplaceAll;
+    @FXML
+    void Search()
+    {
+        hboxSearch.setPrefHeight(35);
+        btnCloseSearch.setPrefHeight(30);
+        taFind.setPrefHeight(30);
+        taReplace.setPrefHeight(30);
+        btnFind.setPrefHeight(30);
+        btnFindNext.setPrefHeight(30);
+        btnReplaceAll.setPrefHeight(30);
+
+        hboxSearch.setMinHeight(35);
+        btnCloseSearch.setMinHeight(30);
+        taFind.setMinHeight(30);
+        taReplace.setMinHeight(30);
+        btnFind.setMinHeight(30);
+        btnFindNext.setMinHeight(30);
+        btnReplaceAll.setMinHeight(30);
+
+        hboxSearch.setMaxHeight(35);
+        btnCloseSearch.setMaxHeight(30);
+        taFind.setMaxHeight(30);
+        taReplace.setMaxHeight(30);
+        btnFind.setMaxHeight(30);
+        btnFindNext.setMaxHeight(30);
+        btnReplaceAll.setMaxHeight(30);
+
+
+    }
+    @FXML
+    void closeSearch()
+    {
+        hboxSearch.setPrefHeight(0);
+        btnCloseSearch.setPrefHeight(0);
+        taFind.setPrefHeight(0);
+        taReplace.setPrefHeight(0);
+        btnFind.setPrefHeight(0);
+        btnFindNext.setPrefHeight(0);
+        btnReplaceAll.setPrefHeight(0);
+
+        hboxSearch.setMinHeight(0);
+        btnCloseSearch.setMinHeight(0);
+        taFind.setMinHeight(0);
+        taReplace.setMinHeight(0);
+        btnFind.setMinHeight(0);
+        btnFindNext.setMinHeight(0);
+        btnReplaceAll.setMinHeight(0);
+
+        hboxSearch.setMaxHeight(0);
+        btnCloseSearch.setMaxHeight(0);
+        taFind.setMaxHeight(0);
+        taReplace.setMaxHeight(0);
+        btnFind.setMaxHeight(0);
+        btnFindNext.setMaxHeight(0);
+        btnReplaceAll.setMaxHeight(0);
+    }
+
+    @Override
+    public boolean findNext() {
+
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+
+        String pattern=taFind.getText();
+
+        currInd++;
+        if(currInd>=indices.size())currInd=0;
+
+        if(indices.size() >currInd) {
+            currFile.getTaEditor().selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
+            currFile.getTaEditor().requestFocus();
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean replaceAll() {
+
+        if(find()==false)return false;
+
+        int ind = tabPane.getSelectionModel().getSelectedIndex();
+        CodeFile currFile = filesArray.get(ind);
+
+        String pattern=taFind.getText();
+
+        String text = currFile.getTaEditor().getText();
+        int more=0;
+        for(int i=0;i<indices.size();i++)
+        {
+            text=text.substring(0,indices.get(i)+more)+taReplace.getText()+text.substring(indices.get(i)+pattern.length()+more);
+            more+=taReplace.getText().length()-taFind.getText().length();
+        }
+
+        currFile.getTaEditor().setText(text);
+
+        indices.clear();
+
+
+        return true;
+    }
 }
 
 public class Controller extends TextEditor implements Initializable{
@@ -721,7 +890,7 @@ public class Controller extends TextEditor implements Initializable{
 
        // taLogs.appendText("\nCreated new File at : "+codeFile.getFilePath());
 
-
+        btnCloseSearch.fire();
 
     }
     @FXML

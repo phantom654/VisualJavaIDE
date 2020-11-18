@@ -90,6 +90,11 @@
                                         <MenuItem mnemonicParsing="false" onAction="#changeFontColor" text="Font Color" />
                                     </items>
                                 </Menu>
+                        <Menu mnemonicParsing="false" text="Search">
+                          <items>
+                            <MenuItem mnemonicParsing="false" onAction="#Search" text="Find/Replace" />
+                          </items>
+                        </Menu>
                                 <Menu mnemonicParsing="false" text="Help">
                                     <items>
                                         <MenuItem mnemonicParsing="false" text="About" />
@@ -113,6 +118,43 @@
                         </ToolBar>
                     </children>
                 </HBox>
+            <HBox fx:id="hboxSearch" fillHeight="false" minHeight="0.0" prefHeight="51.0" prefWidth="1137.0" spacing="20.0" style="-fx-background-color: #e6e6e6;" VBox.vgrow="NEVER">
+               <children>
+                  <TextArea fx:id="taFind" maxHeight="22.0" prefHeight="22.0" prefWidth="200.0">
+                     <HBox.margin>
+                        <Insets bottom="5.0" left="30.0" top="5.0" />
+                     </HBox.margin>
+                  </TextArea>
+                  <Button fx:id="btnFind" mnemonicParsing="false" onAction="#find" text="Find">
+                     <HBox.margin>
+                        <Insets top="5.0" />
+                     </HBox.margin>
+                  </Button>
+                  <Button fx:id="btnFindNext" mnemonicParsing="false" onAction="#findNext" text="Find Next">
+                     <HBox.margin>
+                        <Insets top="5.0" />
+                     </HBox.margin>
+                  </Button>
+                  <TextArea fx:id="taReplace" prefHeight="200.0" prefWidth="200.0">
+                     <HBox.margin>
+                        <Insets top="5.0" />
+                     </HBox.margin>
+                  </TextArea>
+                  <Button fx:id="btnReplaceAll" mnemonicParsing="false" onAction="#replaceAll" text="Replace All">
+                     <HBox.margin>
+                        <Insets top="5.0" />
+                     </HBox.margin>
+                  </Button>
+                  <Button fx:id="btnCloseSearch" layoutX="100.0" mnemonicParsing="false" onAction="#closeSearch" text="Close">
+                     <HBox.margin>
+                        <Insets top="5.0" />
+                     </HBox.margin>
+                  </Button>
+               </children>
+               <padding>
+                  <Insets bottom="10.0" />
+               </padding>
+            </HBox>
                 <TabPane fx:id="tabPane" prefHeight="200.0" prefWidth="200.0" VBox.vgrow="ALWAYS" />
                 <TabPane fx:id="tabPaneLogs" prefHeight="250.0" prefWidth="200.0" tabClosingPolicy="UNAVAILABLE">
                     <tabs>

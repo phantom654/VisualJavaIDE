@@ -24,6 +24,7 @@
 .tab-pane
 {
     -fx-tab-min-width:90px;
+    -fx-background-color: #e6e6e6;
 }
 
 .tab{
