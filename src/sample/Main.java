@@ -25,6 +25,7 @@ public class Main extends Application {
         primaryStage.setTitle("Visual IDE");
         Scene scene = new Scene(root);
         scene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
+        scene.getStylesheets().add(getClass().getResource("java-keywords.css").toExternalForm());
 
         primaryStage.setScene(scene);
         primaryStage.initStyle(StageStyle.DECORATED);

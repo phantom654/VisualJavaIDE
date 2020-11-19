@@ -26,13 +26,20 @@ import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.LineNumberFactory;
+import org.fxmisc.richtext.model.StyleSpans;
+import org.fxmisc.richtext.model.StyleSpansBuilder;
+import org.reactfx.Subscription;
 
 import javax.swing.*;
 import java.io.*;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.ResourceBundle;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.Flow;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 interface FileHandling
 {
@@ -74,6 +81,105 @@ interface Search
     boolean replaceAll();
 }
 
+class TextCodeArea {
+
+    private static final String[] KEYWORDS = new String[] {
+            "abstract", "assert", "boolean", "break", "byte",
+            "case", "catch", "char", "class", "const",
+            "continue", "default", "do", "double", "else",
+            "enum", "extends", "final", "finally", "float",
+            "for", "goto", "if", "implements", "import",
+            "instanceof", "int", "interface", "long", "native",
+            "new", "package", "private", "protected", "public",
+            "return", "short", "static", "strictfp", "super",
+            "switch", "synchronized", "this", "throw", "throws",
+            "transient", "try", "void", "volatile", "while",
+            "#include","using","namespace","typedef","long long","int",
+            "#define","auto","<<",">>","stack","vector","queue","char","float",
+            "double","short","union","return","true","false",
+    };
+
+    private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";
+    private static final String PAREN_PATTERN = "\\(|\\)";
+    private static final String BRACE_PATTERN = "\\{|\\}";
+    private static final String BRACKET_PATTERN = "\\[|\\]";
+    private static final String SEMICOLON_PATTERN = "\\;";
+    private static final String STRING_PATTERN = "\"([^\"\\\\]|\\\\.)*\"";
+    private static final String COMMENT_PATTERN = "//[^\n]*" + "|" + "/\\*(.|\\R)*?\\*/";
+    private static final String ASSIGNMENT_PATTERN = "\\s+\\w+?\\s+=" + "|" + "\\s+\\w+\\[.*\\]?\\s+=";
+
+    private static final Pattern PATTERN = Pattern.compile(
+            "(?<KEYWORD>" + KEYWORD_PATTERN + ")"
+                    + "|(?<PAREN>" + PAREN_PATTERN + ")"
+                    + "|(?<BRACE>" + BRACE_PATTERN + ")"
+                    + "|(?<BRACKET>" + BRACKET_PATTERN + ")"
+                    + "|(?<SEMICOLON>" + SEMICOLON_PATTERN + ")"
+                    + "|(?<STRING>" + STRING_PATTERN + ")"
+                    + "|(?<COMMENT>" + COMMENT_PATTERN + ")"
+                    + "|(?<ASSIGNMENT>" + ASSIGNMENT_PATTERN + ")"
+    );
+
+    CodeArea codeArea;
+
+    public  TextCodeArea(AnchorPane pane) {
+        codeArea = new CodeArea();
+
+        VirtualizedScrollPane sp = new VirtualizedScrollPane(codeArea);
+        pane.getChildren().add(sp);
+        AnchorPane.setLeftAnchor(sp, 0.0);
+        AnchorPane.setRightAnchor(sp, 0.0);
+        AnchorPane.setBottomAnchor(sp, 0.0);
+        AnchorPane.setTopAnchor(sp, 0.0);
+        codeArea.prefWidthProperty().bind(pane.widthProperty());
+        codeArea.prefHeightProperty().bind(pane.heightProperty());
+        codeArea.setParagraphGraphicFactory(LineNumberFactory.get(codeArea));
+        Subscription cleanupWhenNoLongerNeedIt = codeArea.multiPlainChanges()
+                .successionEnds(java.time.Duration.ofMillis(50))
+                .subscribe(ignore -> codeArea.setStyleSpans(0, computeHighlighting(codeArea.getText())));
+        final Pattern whiteSpace = Pattern.compile( "^\\s+" );
+//        codeArea.addEventHandler( KeyEvent.KEY_PRESSED, key -> {
+//            if (key.getCode() == KeyCode.ENTER) {
+//                int pos = codeArea.getCaretPosition();
+//                int par = codeArea.getCurrentParagraph();
+//                Matcher matcher = whiteSpace.matcher(codeArea.getParagraph(par-1).getSegments().get(0));
+//                if (matcher.find()) Platform.runLater(() -> codeArea.insertText(pos, matcher.group()));
+//            }
+//        });
+//        cleanupWhenNoLongerNeedIt.unsubscribe();    // to stop and clean up
+    }
+
+    private static StyleSpans<Collection<String>> computeHighlighting(String text) {
+        int lastKwEnd = 0;
+        Matcher matcher = PATTERN.matcher(text);
+        StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();
+
+        while(matcher.find()) {
+            String styleClass =
+                    matcher.group("KEYWORD") != null ? "keyword" :
+                            matcher.group("PAREN") != null ? "paren" :
+                                    matcher.group("BRACE") != null ? "brace" :
+                                            matcher.group("BRACKET") != null ? "bracket" :
+                                                    matcher.group("SEMICOLON") != null ? "semicolon" :
+                                                            matcher.group("STRING") != null ? "string" :
+                                                                    matcher.group("COMMENT") != null ? "comment" :
+                                                                            matcher.group("ASSIGNMENT") != null ? "assignment" :
+                                                                                    null; /* never happens */ assert styleClass != null;
+            spansBuilder.add(Collections.emptyList(), matcher.start() - lastKwEnd);
+            spansBuilder.add(Collections.singleton(styleClass), matcher.end() - matcher.start());
+            lastKwEnd = matcher.end();
+        }
+        spansBuilder.add(Collections.emptyList(), text.length() - lastKwEnd);
+        return spansBuilder.create();
+    }
+
+    public void setText(String s)
+    {
+        codeArea.deleteText(0,codeArea.getText().length());
+        codeArea.insertText(0,s);
+    }
+
+}
+
 
 
 class CodeFile implements Cloneable
@@ -84,7 +190,7 @@ class CodeFile implements Cloneable
     private String filePath;//directory of file in disk
     private Tab tab;
     private AnchorPane anchorPane;
-    private TextArea taEditor;
+    private TextCodeArea taEditor;
     private Boolean isSaved;
 
     public Object clone()throws CloneNotSupportedException{
@@ -139,11 +245,11 @@ class CodeFile implements Cloneable
         this.anchorPane = anchorPane;
     }
 
-    public TextArea getTaEditor() {
+    public TextCodeArea getTaEditor() {
         return taEditor;
     }
 
-    public void setTaEditor(TextArea taEditor) {
+    public void setTaEditor(TextCodeArea taEditor) {
         this.taEditor = taEditor;
     }
 
@@ -180,10 +286,10 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
 
-        TextArea taEditor = currFile.getTaEditor();
-        int caretPosition = taEditor.getCaretPosition();
+        TextCodeArea taEditor = currFile.getTaEditor();
+        int caretPosition = taEditor.codeArea.getCaretPosition();
         int temp = caretPosition - 1;
-        String text = taEditor.getText();
+        String text = taEditor.codeArea.getText();
         String s = "";
         int num = 0;
         //taLogs.appendText("\n"+e.getCode().toString());
@@ -207,8 +313,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
                 temp++;
             }
-
-            taEditor.insertText(caretPosition, s);
+//            System.out.println(s);
+            taEditor.codeArea.insertText(caretPosition, s);
             taLogs.appendText("\nIdentation done, " + num + " spaces inserted");
 
         }
@@ -216,7 +322,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         {
             if(text.charAt(temp)=='\t')
             {
-                currFile.getTaEditor().deleteText(temp,temp+1);
+                currFile.getTaEditor().codeArea.deleteText(temp,temp+1);
             }
         }
 
@@ -240,18 +346,17 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         codeFile.setSaved(true);
 
 
-
+        codeFile.setAnchorPane(new AnchorPane());
         codeFile.setTab(new Tab(codeFile.getFileName()));
-        codeFile.setTaEditor(new TextArea());
-        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
-        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+        codeFile.setTaEditor(new TextCodeArea(codeFile.getAnchorPane()));
+        codeFile.getTaEditor().codeArea.setOnKeyPressed(new EventHandler<KeyEvent>() {
             @Override
             public void handle(KeyEvent keyEvent) {
                 identation(keyEvent);
             }
         });
-        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
-        codeFile.setAnchorPane(new AnchorPane());
+        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
             @Override
@@ -261,19 +366,28 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             }
         });
 
-        AnchorPane.setTopAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setLeftAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setRightAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setBottomAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setTopAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setLeftAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setRightAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setBottomAnchor(codeFile.getTaEditor().codeArea,0.0);
 
-        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor());
+        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor().codeArea);
         codeFile.getTab().setContent(codeFile.getAnchorPane());
         tabPane.getTabs().add(codeFile.getTab());
         filesArray.add(codeFile);//add newly created file to the filesArray
+        //codeFile.getTaEditor().codeArea.setFocusTraversable();
 
         tabPane.getSelectionModel().select(codeFile.getTab());
 
         taLogs.appendText("\nCreated new File at : "+codeFile.getFilePath());
+        codeFile.getTaEditor().codeArea.setFocusTraversable(true);
+
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                codeFile.getTaEditor().codeArea.requestFocus();
+            }
+        });
         return true;
 
     }
@@ -302,18 +416,17 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             e.printStackTrace();
         }
 
-
+        codeFile.setAnchorPane(new AnchorPane());
         codeFile.setTab(new Tab(codeFile.getFileName()));
-        codeFile.setTaEditor(new TextArea());
-        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
-        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+        codeFile.setTaEditor(new TextCodeArea(codeFile.getAnchorPane()));
+        codeFile.getTaEditor().codeArea.setOnKeyPressed(new EventHandler<KeyEvent>() {
             @Override
             public void handle(KeyEvent keyEvent) {
                 identation(keyEvent);
             }
         });
-        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
-        codeFile.setAnchorPane(new AnchorPane());
+        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
             @Override
@@ -328,19 +441,28 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
         codeFile.getTaEditor().setText(text);//set the text in current file window
 
-        AnchorPane.setTopAnchor(codeFile.getTaEditor(),0.0);//set constraints
-        AnchorPane.setLeftAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setRightAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setBottomAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setTopAnchor(codeFile.getTaEditor().codeArea,0.0);//set constraints
+        AnchorPane.setLeftAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setRightAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setBottomAnchor(codeFile.getTaEditor().codeArea,0.0);
 
-        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor());
+        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor().codeArea);
         codeFile.getTab().setContent(codeFile.getAnchorPane());
         tabPane.getTabs().add(codeFile.getTab());
         filesArray.add(codeFile);//add newly created codefile to the filesArray
+        codeFile.getTaEditor().codeArea.requestFocus();
 
         tabPane.getSelectionModel().select(codeFile.getTab());
 
         taLogs.appendText("\nOpened new File at : "+codeFile.getFilePath());
+        codeFile.getTaEditor().codeArea.setFocusTraversable(true);
+
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                codeFile.getTaEditor().codeArea.requestFocus();
+            }
+        });
         return true;
 
     }
@@ -378,7 +500,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             if (alert.getResult() == ButtonType.NO) return false;
         }
 
-        currFile.setText(currFile.getTaEditor().getText());
+        currFile.setText(currFile.getTaEditor().codeArea.getText());
 
         //Write file on disk
         try {
@@ -423,7 +545,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         int ind = tabPane.getSelectionModel().getSelectedIndex();//current open tab
         CodeFile currFile = filesArray.get(ind);
         String text1 = currFile.getText();
-        String text2 = currFile.getTaEditor().getText();
+        String text2 = currFile.getTaEditor().codeArea.getText();
 
         Boolean hasChanges = false;
         if(text1.length() != text2.length())hasChanges=true;
@@ -462,7 +584,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
-        currFile.getTaEditor().undo();
+        currFile.getTaEditor().codeArea.undo();
 
         return true;
     }
@@ -472,7 +594,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
     public Boolean redo() {
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
-        currFile.getTaEditor().redo();
+        currFile.getTaEditor().codeArea.redo();
         return true;
     }
 
@@ -481,7 +603,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
     public Boolean cut() {
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
-        currFile.getTaEditor().cut();
+        currFile.getTaEditor().codeArea.cut();
         return true;
     }
 
@@ -490,7 +612,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
     public Boolean copy() {
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
-        currFile.getTaEditor().copy();
+        currFile.getTaEditor().codeArea.copy();
         return true;
     }
 
@@ -499,7 +621,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
     public Boolean paste() {
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
-        currFile.getTaEditor().paste();
+        currFile.getTaEditor().codeArea.paste();
         return true;
     }
 
@@ -550,7 +672,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
             for(int i=0;i<filesArray.size();i++)
             {
-                filesArray.get(i).getTaEditor().setFont(Font.font(fontStyle,fontSize));
+                //filesArray.get(i).getTaEditor().setFont(Font.font(fontStyle,fontSize));
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
 
             taLogs.appendText("\nChanged Font to : "+fontStyle+" : "+fontSize);
@@ -596,7 +719,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
             for(int i=0;i<filesArray.size();i++) {
 
-                filesArray.get(i).getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+//                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
             taLogs.appendText("\nChanged Font Color : "+fontColor);
 
@@ -642,7 +766,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
             for(int i=0;i<filesArray.size();i++)
             {
-                filesArray.get(i).getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
+                //filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill: ;:" + fontColor + "; ");
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
         taLogs.appendText("\n"+"Changed Background Color to : "+backgroundColor);
 
@@ -669,7 +794,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
 
-         String text = currFile.getTaEditor().getText();
+         String text = currFile.getTaEditor().codeArea.getText();
         ///////
          String pattern=taFind.getText();
 
@@ -700,9 +825,9 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         if(currInd>=indices.size())currInd=0;
 
                 if(indices.size() >currInd) {
-                    currFile.getTaEditor().selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
+                    currFile.getTaEditor().codeArea.selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
 
-                    currFile.getTaEditor().requestFocus();
+                    currFile.getTaEditor().codeArea.requestFocus();
                 }
         return true;
     }
@@ -790,8 +915,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         if(currInd>=indices.size())currInd=0;
 
         if(indices.size() >currInd) {
-            currFile.getTaEditor().selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
-            currFile.getTaEditor().requestFocus();
+            currFile.getTaEditor().codeArea.selectRange(indices.get(currInd), indices.get(currInd) + pattern.length());
+            currFile.getTaEditor().codeArea.requestFocus();
         }
 
         return true;
@@ -807,7 +932,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
 
         String pattern=taFind.getText();
 
-        String text = currFile.getTaEditor().getText();
+        String text = currFile.getTaEditor().codeArea.getText();
         int more=0;
         for(int i=0;i<indices.size();i++)
         {
@@ -855,18 +980,18 @@ public class Controller extends TextEditor implements Initializable{
         codeFile.setText("");
         codeFile.setSaved(false);
 
-
+        codeFile.setAnchorPane(new AnchorPane());
         codeFile.setTab(new Tab(codeFile.getFileName()));
-        codeFile.setTaEditor(new TextArea());
-        codeFile.getTaEditor().setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
-        codeFile.getTaEditor().setOnKeyPressed(new EventHandler<KeyEvent>() {
+        codeFile.setTaEditor(new TextCodeArea(codeFile.getAnchorPane()));
+        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+
+        codeFile.getTaEditor().codeArea.setOnKeyPressed(new EventHandler<KeyEvent>() {
             @Override
             public void handle(KeyEvent keyEvent) {
                 identation(keyEvent);
             }
         });
-        codeFile.getTaEditor().setFont(Font.font(fontStyle,fontSize));
-        codeFile.setAnchorPane(new AnchorPane());
+
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
             @Override
@@ -876,15 +1001,23 @@ public class Controller extends TextEditor implements Initializable{
             }
         });
 
-        AnchorPane.setTopAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setLeftAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setRightAnchor(codeFile.getTaEditor(),0.0);
-        AnchorPane.setBottomAnchor(codeFile.getTaEditor(),0.0);
+        AnchorPane.setTopAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setLeftAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setRightAnchor(codeFile.getTaEditor().codeArea,0.0);
+        AnchorPane.setBottomAnchor(codeFile.getTaEditor().codeArea,0.0);
 
-        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor());
+        codeFile.getAnchorPane().getChildren().add(codeFile.getTaEditor().codeArea);
         codeFile.getTab().setContent(codeFile.getAnchorPane());
         tabPane.getTabs().add(codeFile.getTab());
         filesArray.add(codeFile);//add newly created file to the filesArray
+        codeFile.getTaEditor().codeArea.setFocusTraversable(true);
+
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                codeFile.getTaEditor().codeArea.requestFocus();
+            }
+        });
 
         tabPane.getSelectionModel().select(codeFile.getTab());
 
@@ -968,6 +1101,7 @@ public class Controller extends TextEditor implements Initializable{
             String readline;taOutput.setText("");
             while((readline = br.readLine())!=null) taOutput.appendText(readline+"\n");
             taOutput.appendText("Program exited with exit code : "+prc.exitValue());
+            tabPaneLogs.getSelectionModel().select(2);
         }
         else
         {
@@ -975,7 +1109,7 @@ public class Controller extends TextEditor implements Initializable{
             String readline;
             while((readline = br.readLine())!=null) taLogs.appendText("\n"+readline);
         }
-
+        //taLogs.positionCaret(0);
 
         return true;
     }
@@ -1292,3 +1426,4 @@ public class Controller extends TextEditor implements Initializable{
 
 
 }
+
