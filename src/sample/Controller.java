@@ -425,7 +425,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
                 identation(keyEvent);
             }
         });
-        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-text-color:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
 
 
         codeFile.getTab().setOnCloseRequest(new EventHandler<Event>() {
@@ -673,7 +673,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             for(int i=0;i<filesArray.size();i++)
             {
                 //filesArray.get(i).getTaEditor().setFont(Font.font(fontStyle,fontSize));
-                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-text-color:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
 
             taLogs.appendText("\nChanged Font to : "+fontStyle+" : "+fontSize);
@@ -720,7 +720,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             for(int i=0;i<filesArray.size();i++) {
 
 //                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-control-inner-background:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; ");
-                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-text-color:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
             taLogs.appendText("\nChanged Font Color : "+fontColor);
 
@@ -767,7 +767,7 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
             for(int i=0;i<filesArray.size();i++)
             {
                 //filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill: ;:" + fontColor + "; ");
-                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+                filesArray.get(i).getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-text-color:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
             }
         taLogs.appendText("\n"+"Changed Background Color to : "+backgroundColor);
 
@@ -964,6 +964,10 @@ public class Controller extends TextEditor implements Initializable{
                 .addAll(
                         //add file extentions here
                         new FileChooser.ExtensionFilter("C++", "*.cpp"),
+                        new FileChooser.ExtensionFilter("C",
+                                "*.c"),
+                        new FileChooser.ExtensionFilter("Java",
+                                "*.java"),
                         new FileChooser.ExtensionFilter("All Files", "*.*"));
 
         backgroundColor = defaultBackgroundColor;
@@ -983,7 +987,8 @@ public class Controller extends TextEditor implements Initializable{
         codeFile.setAnchorPane(new AnchorPane());
         codeFile.setTab(new Tab(codeFile.getFileName()));
         codeFile.setTaEditor(new TextCodeArea(codeFile.getAnchorPane()));
-        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-fx-text-fill:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+        codeFile.getTaEditor().codeArea.setStyle("-fx-background-color:"+backgroundColor+";"+"-text-color:" + fontColor + "; "+"-fx-font-family:"+fontStyle+";"+"-fx-font-size: "+fontSize+";");
+
 
         codeFile.getTaEditor().codeArea.setOnKeyPressed(new EventHandler<KeyEvent>() {
             @Override
@@ -1047,9 +1052,28 @@ public class Controller extends TextEditor implements Initializable{
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
         taLogs.appendText("\nCompiling "+currFile.getFilePath());
+//        System.out.println(currFile.getFileType());
         if(currFile.getFileType().equals("cpp"))//if c++ file
         {
             command="g++ -g "+currFile.getFilePath()+" -o"+currFile.getFileName();
+        }
+        else if(currFile.getFileType().equals("c"))//if c file
+        {
+            command="gcc -g "+currFile.getFilePath()+" -o"+currFile.getFileName();
+        }
+        else if(currFile.getFileType().equals("java"))//if java file
+        {
+            command="javac "+currFile.getFilePath();
+        }
+        else //other Files
+        {
+            Alert alert = new Alert(
+                    Alert.AlertType.ERROR,
+                    "We only supprt c,c++ and java !!"
+            );
+
+            alert.showAndWait();
+            return false;
         }
 
         Process prc = run.exec(command);
@@ -1079,10 +1103,15 @@ public class Controller extends TextEditor implements Initializable{
         CodeFile currFile = filesArray.get(ind);
         String command="";
 
-        if(currFile.getFileType().equals("cpp"))
+        if(currFile.getFileType().equals("cpp") || currFile.getFileType().equals("c") )//c++ file
         {
             command = "./"+currFile.getFileName();
         }
+        else if(currFile.getFileType().equals("java"))//java file
+        {
+            command = "java "+currFile.getFilePath();
+        }
+
 
         Process prc = run.exec(command);
         InputStream error = prc.getErrorStream();
@@ -1123,6 +1152,18 @@ public class Controller extends TextEditor implements Initializable{
 
         int ind = tabPane.getSelectionModel().getSelectedIndex();
         CodeFile currFile = filesArray.get(ind);
+
+        if(!currFile.getFileType().equals("cpp") && !currFile.getFileType().equals("c"))
+        {
+            Alert alert = new Alert(
+                    Alert.AlertType.ERROR,
+                    "Can only debug C and C++ file (as gdb is used)"
+            );
+
+            alert.showAndWait();
+
+            return false;
+        }
 
 
             //Create a new window for Debugger
@@ -1421,6 +1462,25 @@ public class Controller extends TextEditor implements Initializable{
 
 
         }
+
+    }
+
+    @FXML
+    public void About()
+    {
+        Alert alert = new Alert(
+                Alert.AlertType.INFORMATION);
+
+        alert.setTitle("About");
+        alert.setHeaderText("Made with Love by :)");
+        alert.setContentText("Sumit Kumar Sahu (IIT2019069)" +
+                "\nRajpal Singh Shekhawat (IIT2019061)"+
+                "\nPranav Singhal (IIT2019050)"+
+                "\nSlok Aks (IIT2019067)");
+
+        alert.showAndWait();
+
+
 
     }
 
