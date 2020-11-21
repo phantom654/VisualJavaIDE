@@ -295,7 +295,8 @@ class TextEditor implements FileHandling,Edit,Appearence,Search
         //taLogs.appendText("\n"+e.getCode().toString());
         if (e.getCode().equals(KeyCode.ENTER)) {
 
-            if (text.charAt(temp - 1) == '{') {
+
+            if (temp-1>=0 && text.charAt(temp - 1) == '{') {
                 num += 8;
                 s += "\t";
             }
