@@ -7,6 +7,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -26,10 +27,12 @@ public class Main extends Application {
         Scene scene = new Scene(root);
         scene.getStylesheets().add(getClass().getResource("styles.css").toExternalForm());
         scene.getStylesheets().add(getClass().getResource("java-keywords.css").toExternalForm());
+        primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("Code_Icon.png")));
 
         primaryStage.setScene(scene);
         primaryStage.initStyle(StageStyle.DECORATED);
         primaryStage.show();
+
 
         Controller controller = fxmlLoader.getController();
 
