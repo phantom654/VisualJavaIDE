@@ -26,8 +26,8 @@ ___
 ## Contributors:
 >1. **Sumit Kumar Sahu (IIT2019069)**
 >2. **Rajpal Singh Shekhawat (IIT2019061)**
->3. **Pranav Singhal (IIT2019050)**
->4. **Slok Aks (IIT2019067)**
+>3. **Slok Aks (IIT2019067)**
+>4. **Pranav Singhal (IIT2019050)**
 ___
 ## Project Screenshots:
 <center><img src="home.png" height=320 width=640></center>
