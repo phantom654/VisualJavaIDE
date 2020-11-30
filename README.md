@@ -10,7 +10,7 @@ ___
 ## How to setup ?
 >1. **Clone this repository through the following link:**
  ```
-https://github.com/singhalpranav22/VisualJavaIDE.git
+https://github.com/phantom654/VisualJavaIDE.git
 ```
 >2. **Add JavaFx Framework to your project. If you are using Intellij IDE then follow this link for guidance :**
 [Guide](https://www.jetbrains.com/help/idea/javafx.html)
